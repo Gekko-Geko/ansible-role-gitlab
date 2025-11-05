@@ -33,8 +33,28 @@
 
 - name: "Install GitLab repository."
   ansible.builtin.command: bash /tmp/gitlab_install_repository.sh
+  args:
+    creates: /etc/apt/sources.list.d/gitlab_gitlab-ce.list
   register: output
   when: not gitlab_file.stat.exists
+
+- name: Check if the new GitLab GPG keyring file exists
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/gitlab_gitlab-ce-archive-keyring.gpg
+  register: gitlab_keyring_stat
+
+- name: Replace old signed-by path with new /etc/apt/keyrings path
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/gitlab_gitlab-ce.list
+    regexp: '\[signed-by=/usr/share/keyrings/gitlab_gitlab-ce-archive-keyring.gpg\]'
+    replace: "[signed-by=/etc/apt/keyrings/gitlab_gitlab-ce-archive-keyring.gpg]"
+    backup: true
+  register: replace_status
+  when: gitlab_keyring_stat.stat.exists
+
+- name: "Update APT cache."
+  ansible.builtin.apt:
+    update_cache: yes
 
 - name: "Define the Gitlab package name."
   ansible.builtin.set_fact:
